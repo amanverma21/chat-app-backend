@@ -2,8 +2,7 @@
 import { Server } from 'socket.io';
 
 export default {
-  register({ strapi }: { strapi: any }) {
-  },
+  register({ strapi }: { strapi: any }) { },
 
   bootstrap({ strapi }: { strapi: any }) {
     const io = new Server(strapi.server.httpServer, {
@@ -16,6 +15,7 @@ export default {
 
     io.on('connection', async (socket: any) => {
       console.log('A user connected:', socket.id);
+
       try {
         const messages = await strapi.entityService.findMany('api::message.message', {
           sort: { timestamp: 'ASC' },
@@ -26,16 +26,20 @@ export default {
       } catch (error) {
         console.error('Error fetching messages:', error);
       }
+
       socket.on('message', async (data: any) => {
         console.log('Received message from client:', data);
+
         try {
           const message = await strapi.entityService.create('api::message.message', {
             data: {
-              Text: data.Text, 
+              Text: data.Text,
               timestamp: new Date(),
-              author: data.authorId, 
+              author: data.authorId,
+              socketId: data.socketId, 
             },
           });
+
           const savedMessage = await strapi.entityService.findOne(
             'api::message.message',
             message.id,
@@ -43,7 +47,8 @@ export default {
               populate: ['author'],
             }
           );
-          io.emit('message', savedMessage);
+
+          io.emit('message', { ...savedMessage, socketId: data.socketId });
         } catch (error) {
           console.error('Error saving message:', error);
         }
@@ -53,6 +58,7 @@ export default {
         console.log('A user disconnected:', socket.id);
       });
     });
+
     strapi.io = io;
 
     console.log('Socket.io server has been initialized');
